@@ -1,0 +1,701 @@
+---
+title: "BUyunhuaz-AN588-Replication"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+editor_options:
+  chunk_output_type: inline
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE,warning = FALSE, comment = "##",prompt = TRUE, tidy = TRUE, tidy.opts = list(width.cutoff = 75), fig.path = "img/")
+```
+
+## Introduction
+
+::: {style="text-align: center;"}
+<img src="https://raw.githubusercontent.com/yunhuaz/BUyunhuaz-AN588-Replication/main/Replication%20Image.png" width="346"/>
+:::
+
+Anemia is a major public health concern in India among young children. Despite its high prevalence, there isn't a lot of information about the relationship between the different micronutrient deficiencies and anemia. The study *"Multiple micronutrient status and predictors of anemia in young children aged 12-23 months living in New Delhi, India"* by Houghton S. et al (2019) aims to measure how multiple levels of miconutrients assess their role in hemoglobin levels and anemia.
+
+My replication project will reproduce the statistical analyses conducted in the original study by using both descriptive and inferential statistics. Descriptive statistics will include measures such as the mean, standard deviation, and 95% confidence intervals. Inferential statistics will include multiple linear regression and logistic regression to explore the relationships between variables. The analysis will be based on the dataset *Indiadata_micronutrientstatus.csv,* which contains data from 120 subjects and 50 variables. Similar to the paper I will be examining how socioeconomic factors such as religion, and micronutrient levels like vitamin D are associated with anemia.
+
+#### Outline of the Replication Paper
+
+1.  I will be loading and cleaning the data initially. I noticed that in the paper their total sample was 77, but the dataset contains 120 subjects. However, the reason is because only 77 subjects provided blood samples in order to find a relationship between micronutrient levels and anemia.
+2.  I'll be performing the descriptive statistics by creating two tables, one describing the socioeconomic status of the childrens family and the other about their health and anthropometric characteristics. For categorical variables, I will report counts and percentages. For continuous variables I will provide the counts, mean, and the standard deviation. For skewed continuous variables, particularly biomarker concentrations, I will provide the geometric mean with their 95% confidence interval.
+3.  The paper did not provide any visual representation of any data. Therefore, I created two figures to enhance understanding of potential relationships between variables. The first bar plot will be visualizing the relationship between religion and maternal education. This will help us better understand the source population and interpret patterns in health outcomes based on sociodemographic backgrounds. The second bar plot will visualize the relationship between vaccination status and the prevalence of diarrhea to help us understand how vaccination could possible help us understand their relationship with risk of illness. This could help us relate to a child's broader health and nutritional status.
+4.  I will be performing a univariate linear regression to test the unadjusted association between each predictor and hemoglobin. This is to determine which predictors were significantly associated with hemoglobin to include in the multiple linear regression (performed in the original paper, but not performed here). So the linear regressions I will be performing are not adjusted for any other variables.
+5.  I will be performing a univariate logistic regression to estimate the odds ratio for each predictor. This will help us identify which variables are individually associated with the likelihood of being anemic to include in the multiple logistic regression (performed in the original paper, but not here). So the logistic regressions I will be performing are not adjusted for any other variables.
+
+A P-value of \< 0.05 indicated statistical significance.
+
+## Setting up Data
+
+Here I loaded the csv file and necessary libraries that I will be using.
+
+-   Libraries:
+
+    -   `curl`: To receive my CSV file from github
+
+    -   `tidyverse`: Using `dplyr` from `tidyverse` to use the piping operator (`%>%`) to simplify data manipulation. As well as functions like `pivot_longer()` to reshape the dataset into a long format for easier data analysis along with `tibble()` to create dataframes.
+
+    -   `psych`: Contains the function `geometric_mean` to help me calculate the geometric mean for skewed continuous variable
+
+    -   `kableExtra`: To make my dataframes look prettier
+
+```{r}
+# Load the curl package
+library(curl)
+
+# Getting the data from Github
+f <- curl("https://raw.githubusercontent.com/yunhuaz/BUyunhuaz-AN588-Replication/refs/heads/main/Indiadata_micronutrientstatus.csv")
+
+# Reading the CSV file
+data <- read.csv(f, header = TRUE, sep = ",", stringsAsFactors = FALSE)
+```
+
+```{r}
+# Loading libraries necessary
+library(tidyverse)
+library(psych)
+library(kableExtra)
+```
+
+The dataset contained 120 children who were surveyed, but only 77 of them provide blood data. So I had to remove all the subjects that had no blood data.
+
+```{r}
+# Cleaning data 
+data <- subset(data, !is.na(hb_gdL))
+head(data)
+```
+
+The dataset include the following variables that follow under these categories when used in statistical analyses:
+
+-   Sociodemographic: `sex`, `motheredu`, `wealthindex`, `religion`
+-   Child health: `diarrhoea`, `fever`, `vomiting`, `cough`
+-   Anthropometry: `WHZ`, `HAZ`, `WAZ`, `MUACZ`
+-   Biomarkers: `ferritin_ugL`, `stfr_mgL`, `bodyiron`, `crp_mgL`, `agp_gL`, `totalvitd_nmolL`, `b12_pmolL`, `folate_nmolL`, etc.
+
+## Statistical Analyses
+
+### Descriptive Statistics
+
+For table 1, certain variables were not found in the data set such as:
+
+-   Mother's age (years)
+
+-   Number of Children under 5 in the household
+
+-   Highest level of schooling
+
+-   Main source of Drinking Water
+
+-   Type of Toilet Facility
+
+This could be due to the pre-survey data that was performed before the study so this data was not provided in the CSV file. So I was unable to replicate those data, but performed the descriptive statistics based on the variables that were provided.
+
+Below I will be replicating Table 1 from the dataset. I decided to create a new variable for the variables I will be storing for cleaner code.
+
+```{r}
+# Picking only the 
+chara_data <- data %>%
+  select(childagemo,sex,religion,motheredu) %>%
+  mutate(childage = childagemo)
+
+# Total sample size
+n_total <- nrow(data)
+
+# Mean of the children
+childage_mean <- mean(data$childagemo)
+childage_sd <- sd(data$childagemo)
+
+# Total number of females
+female_t <- sum(data$sex == "female")
+
+# Percentage of females
+female_pct <- mean(data$sex == "female") * 100
+
+# Religion frequency
+factor_religion <- factor(data$religion, levels = c("Hindu", "Muslim", "Sikh", "Christian"))
+
+# Religion Frequency
+religion_table <- table(factor_religion)
+religion_table
+
+# Religion Percentages (proportions)
+religion_prop <- prop.table(religion_table)
+religion_prop
+
+# Highest level of schooling of mother Frequency
+motheredu_table <- table(data$motheredu)
+motheredu_table
+
+# Highest level of schooling of mother Percentage (proportions)
+motheredu_prop <- prop.table(motheredu_table)
+motheredu_prop
+
+# Creating Data Frames
+# Child age (mean and sd)
+childage_row <- tibble(
+  Variable = "Child age (months)",
+  n = n_total,
+  stat = sprintf("%.1f ± %.1f", childage_mean, childage_sd)
+) %>%
+  rename(`%` = stat)
+
+# Sex (Female)
+female_row <- tibble(
+  Variable = "Sex (Female)",
+  n = female_t,
+  stat = sprintf("%.1f%%", female_pct)
+) %>%
+  rename(`%` = stat)
+
+# Religion 
+religion_row <- tibble(
+  Variable = paste("Religion:", names(religion_table)),
+  n = as.vector(religion_table),
+  stat = sprintf("%.1f%%", 100 * as.vector(religion_prop))
+) %>%
+  rename(`%` = stat)
+
+# Mother's education
+motheredu_row <- tibble(
+  Variable = paste("Education:", names(motheredu_table)),
+  n = as.vector(motheredu_table),
+  stat = sprintf("%.1f%%", 100 * as.vector(motheredu_prop))
+) %>%
+  rename(`%` = stat)
+
+# Combing everything into table_1 variable 
+table_1 <- rbind(
+  childage_row,
+  female_row,
+  religion_row,
+  motheredu_row
+)
+
+# Create a nicely formatted table
+table_1 %>%
+  kbl(caption = "Table 1. Sociodemographic Characteristics of Children") %>%
+  kable_classic(full_width = F, html_font = "Times") %>%
+  column_spec(1, bold = T)
+```
+
+My descriptive statistics match the ones in the paper. We can see that a majority of the population were Hindu families and many mothers finished their education up till secondary school.
+
+Note: Throughout this replication you'll notice that I will be creating new variables and combining at the end to create a dataframe because I couldn't figure out a cleaner way to combine different types of data and it was the simplest way.
+
+For table 2, certain variables were not found in the data set such as:
+
+-   Deworming treatment in past 6 months
+
+-   Vitamin A syrup in past 6 months
+
+Once again these variables might be missing because the data was collected during a pre-survey phase and not included in the final dataset. Therefore, I was unable to replicate analyses involving these variables.
+
+**Table 2.** Health and anthropometric characteristics of young children
+
+```{r}
+# selecting the variables to create my second table
+chara_data2 <- data %>%
+  select(diarrhoea,cough,fever,vomiting, bcg, polio, dpt, measles, hepatitisb,crp_mgL, agp_gL, HAZ, WAZ, WHZ, BAZ)
+
+# Illness past 2 weeks
+illness <- chara_data2 %>%
+  summarise(
+    Diarrhea = sum(diarrhoea == "Yes"),
+    Cough = sum(cough == "Yes"),
+    Fever = sum(fever == "Yes"),
+    Vomiting = sum(vomiting == "Yes")
+  ) %>%
+  pivot_longer(cols = everything(), names_to = "Variable", values_to = "n") %>%
+  mutate(`%` = round(n/nrow(chara_data2) * 100,1))
+
+# Whether or not the children were vaccinated with a vaccine
+vac <- chara_data2 %>% 
+  summarise(
+    BCG = sum(bcg == "Yes"),
+    Polio = sum(polio == "Yes"),
+    DPT = sum(dpt == "Yes"),
+    Measles = sum(measles == "Yes"),
+    HepatitisB = sum(hepatitisb == "Yes")) %>%
+  pivot_longer(cols = everything(), names_to = "Variable", values_to = "n") %>%
+  mutate(`%` = round(n/nrow(chara_data2) * 100,1))
+
+# CRP and AGP geometric mean
+## Making it simpler to call back columns
+crp <- chara_data2$crp_mgL
+agp <- chara_data2$agp_gL
+
+n_crp <- sum(!is.na(crp))
+n_agp <- sum(!is.na(agp))
+
+## Computing Geometric Mean and CI
+gm_crp <- geometric.mean(crp)
+ci_crp <- exp(mean(log(crp), na.rm = TRUE) + c(-1.96, 1.96) * (sd(log(crp), na.rm = TRUE)/sqrt(n_crp)))
+
+gm_agp <- geometric.mean(agp)
+ci_agp <- exp(mean(log(agp), na.rm = TRUE) + c(-1.96, 1.96) * (sd(log(agp), na.rm = TRUE)/sqrt(n_agp)))
+
+## Count above cutoff
+above_crp <- sum(crp > 5, na.rm = TRUE)
+above_agp <- sum(agp > 1, na.rm = TRUE)
+
+# Combine everything in a table
+inflammation <- tibble(
+  Variable = c("Plasma CRP, geometric mean (95% CI)", ">5 mg/L",
+               "Plasma AGP, geometric mean (95% CI)", ">1 g/L"),
+  n = c(n_crp, above_crp, n_agp, above_agp),
+  `%` = c(
+    sprintf("%.2f (%.2f, %.2f)", gm_crp, ci_crp[1], ci_crp[2]),
+    sprintf("%.1f", above_crp / n_crp * 100),
+    sprintf("%.2f (%.2f, %.2f)", gm_agp, ci_agp[1], ci_agp[2]),
+    sprintf("%.1f", above_agp / n_agp * 100)
+  )
+)
+
+# Determining which paitents falls under what stages of inflammation
+chara_data2 <- chara_data2 %>%
+  mutate(stage_inflam = factor(case_when(
+    crp_mgL <= 5 & agp_gL <= 1 ~ "Apparently healthy",
+    crp_mgL > 5 & agp_gL <= 1 ~ "Incubation",
+    crp_mgL > 5 & agp_gL > 1 ~ "Early convalescence",
+    crp_mgL <= 5 & agp_gL > 1 ~ "Late convalescence"
+  ), levels = c(
+    "Apparently healthy",
+    "Incubation",
+    "Early convalescence",
+    "Late convalescence"))
+)
+
+# Counting and getting their %
+inflam_sum <- chara_data2 %>%
+  filter(!is.na(crp_mgL) & !is.na(agp_gL)) %>%
+  count(stage_inflam, .drop = FALSE) %>% #Don't drop empty levels!! 
+  mutate(`%` = round(n/sum(n) * 100, 1))
+
+# Creating a table for HAZ, WAZ, WHZ, BAZ (Anthropometric Measurements)
+## Creating a function to compute % and 95% CI
+prop_ci <- function(x, total) {
+  ci <- binom.test(x,total)$conf.int #Not quartile because we are estimating proportions!!! and not a range!
+  pct <- round(100 * x / total, 1)
+  sprintf("%s (%.1f, %.1f)", pct, 100 * ci[1], 100 * ci[2])
+}
+
+anthro_data <- chara_data2 %>%
+  select(HAZ, WAZ, WHZ, BAZ) %>%
+  rename(LAZ = HAZ, WLZ = WHZ, BMIZ = BAZ)
+
+anthro_summary <- tibble(
+  Variable = c("LAZ, mean ± SD", "Stunting (LAZ < -2 (95% CI))",
+               "WAZ, mean ± SD", "Underweight (WAZ <-2 (95% CI))",
+               "WLZ, mean ± SD", "Wasting (WLZ < -2 (95% CI))",
+               "BMIZ, mean ± SD", "Thinness (BMIZ < -2 (95% CI))",
+               "Overweight (BMIZ >2 (95% CI))"
+  ),
+  n = c(
+    sum(!is.na(anthro_data$LAZ)),
+    sum(anthro_data$LAZ < -2, na.rm = TRUE),
+    sum(!is.na(anthro_data$WAZ)),
+    sum(anthro_data$WAZ < -2, na.rm = TRUE),
+    sum(!is.na(anthro_data$WLZ)),
+    sum(anthro_data$WLZ < -2, na.rm = TRUE),
+    sum(!is.na(anthro_data$BMIZ)),
+    sum(anthro_data$BMIZ < -2, na.rm = TRUE),
+    sum(anthro_data$BMIZ > 2, na.rm = TRUE)
+  ),
+  `% or Mean ± SD` = c(
+    sprintf("%.2f ± %.2f", mean(anthro_data$LAZ, na.rm = TRUE), sd(anthro_data$LAZ, na.rm = TRUE)),
+    prop_ci(sum(anthro_data$LAZ < -2, na.rm = TRUE), sum(!is.na(anthro_data$LAZ))),
+    sprintf("%.2f ± %.2f", mean(anthro_data$WAZ, na.rm = TRUE), sd(anthro_data$WAZ, na.rm = TRUE)),
+    prop_ci(sum(anthro_data$WAZ < -2, na.rm = TRUE), sum(!is.na(anthro_data$WAZ))),
+    sprintf("%.2f ± %.2f", mean(anthro_data$WLZ, na.rm = TRUE), sd(anthro_data$WLZ, na.rm = TRUE)),
+    prop_ci(sum(anthro_data$WLZ < -2, na.rm = TRUE), sum(!is.na(anthro_data$WLZ))),
+    sprintf("%.2f ± %.2f", mean(anthro_data$BMIZ, na.rm = TRUE), sd(anthro_data$BMIZ, na.rm = TRUE)),
+    prop_ci(sum(anthro_data$BMIZ < -2, na.rm = TRUE), sum(!is.na(anthro_data$BMIZ))),
+    prop_ci(sum(anthro_data$BMIZ > 2, na.rm = TRUE), sum(!is.na(anthro_data$BMIZ)))
+  )
+)
+
+# Label each subtable with a Section column
+illness <- illness %>%
+  mutate(Section = "Illness in past 2 weeks", `%` = as.character(`%`)) %>%
+  select(Section, Variable, n, `%`)
+
+vac <- vac %>%
+  mutate(Section = "Vaccinations", `%` = as.character(`%`)) %>%
+  select(Section, Variable, n, `%`)
+
+inflammation <- inflammation %>%
+  mutate(Section = "Inflammation", `%` = as.character(`%`)) %>%
+  select(Section, Variable, n, `%`)
+
+cinflam_sum <- inflam_sum %>%
+  rename(Variable = stage_inflam) %>%
+  mutate(Section = "Stage of inflammation", `%` = as.character(`%`)) %>%
+  select(Section, Variable, n, `%`)
+
+anthro_summary <- anthro_summary %>%
+  rename(`%` = `% or Mean ± SD`) %>%
+  mutate(Section = "Anthropometry", `%` = as.character(`%`)) %>%
+  select(Section, Variable, n, `%`)
+
+# Combine all sections into one final table
+table_2 <- bind_rows(
+  illness,
+  vac,
+  inflammation,
+  cinflam_sum,
+  anthro_summary
+)
+
+# Create a nicely formatted table
+table_2 %>%
+  kbl(caption = "Table 2. Health and anthropometric characteristics of young children") %>%
+  kable_classic(full_width = F, html_font = "Times") %>%
+  column_spec(1, bold = T)
+```
+
+My descriptive statistics match the ones in the paper. We can see that a majority of the population recieved their vaccinations and are healthy individuals.
+
+Throughout the replication of table 2 I encountered multiple issues. When calculating the CRP and AGP geometric means, I kept having issues of wrong syntax and struggles subsetting the data because of its length, which lead me to directly assigning variables to each column. The second issue I came upon was that certain rows contained missing value (`NA`) so when performing the sum of the column or getting their mean or standard deviation, I ran into errors of the table returning `NA` unless I explicitly used `na.rm = TRUE` very often in my code. However, what really help was creating a function to calculate the proportion confidence intervals that I was able to repeatably use throughout the code.
+
+### Graphs of the Descriptive Statistics
+
+```{r}
+# Turn motheredu as a factor
+data$motheredu <- as.factor(data$motheredu)
+
+#c Creating a ggplot based on motheredu separated by religion
+data %>%
+  count(religion, motheredu) %>%
+  ggplot(aes(x = motheredu, y = n, fill = motheredu)) +
+  geom_bar(stat = "identity") +
+  facet_wrap(~ religion) +
+  labs(
+    title = "Mother's Education Levels by Religion",
+    x = "Education Level",
+    y = "Count"
+  )
+```
+
+This bar plot displays Mother's Education levels by religion. This sample consists mainly of Hindu mothers who attained secondary education, we can see that the sample size for Muslim mothers and Sikh mothers are very small. This information is important because educational attainment of mothers is often linked to child health outcomes, and religion can influence health-related behaviors such as diet. By understanding the demographics it allow public health professions to target certain groups for interventions or programs to assist the groups. This bar plot also allows us to understand that this data isn't representative of other religious groups, which is important when making broader conclusions.
+
+```{r}
+# Assigning the names of vaccine variables to reference later
+vaccines <- c("bcg", "polio", "dpt", "measles", "hepatitisb")
+
+# converting diarrhea to a factor
+data$diarrhoea <- as.factor(data$diarrhoea)
+
+# Creating a new variable to show diarrhea prevalence
+vaccine_graph <- data %>%
+  select(all_of(vaccines), diarrhoea) %>%
+  pivot_longer(cols = all_of(vaccines), names_to = "Vaccine", values_to = "Vaccinated") %>%
+  filter(!is.na(diarrhoea), !is.na(Vaccinated), Vaccinated %in% c("Yes", "No")) %>%
+  group_by(Vaccine, Vaccinated) %>%
+  summarise(PercentWithDiarrhea = mean(diarrhoea == "Yes") * 100, .groups = "drop")
+
+# Plotting the dataframe made before
+ggplot(vaccine_graph, aes(x = Vaccinated, y = PercentWithDiarrhea, fill = Vaccinated)) +
+  geom_bar(stat = "identity") +
+  facet_wrap(~ Vaccine) +
+  labs(title = "Diarrhea Prevalence by Vaccination Status", x = "Vaccinated", y = "Percent with Diarrhea")
+```
+
+This barplot displays Diarrhea Prevalence by Vaccination status. We can see that between hepatitis b and measles that those who were vaccinated compared to those who weren't had similar rates of diarrhea. However, the sample for Bacillus Calmette–Guérin (BCG), Diphtheria, Pertussis, Tetanus (DPT), and polio vaccines include only children who were vaccinated. This allows us to explore the association between vaccination and child health outcomes. With Diarrhea being an important predictor of anemia because frequent diarrhea can impair nutrient absorption and contribute to iron deficiency. By understanding how vaccination relates to illness prevalence, public health professionals can provide educational programs emphasizing vaccination.
+
+### Linear Regression
+
+Linear regression in this study was used to assess predictors of hemoglobin concentration as a continuous outcome. This will allow researchers to evaluate how each variable influences overall hemoglobin levels.
+
+```{r}
+# Convert sex to factor and set reference level to "female"
+data$sex <- factor(data$sex, levels = c("female", "male"))
+
+# Convert mother's education to a factor in ordinal level
+data$motheredu <- factor(
+  data$motheredu,
+  levels = c("did not study", "Primary", "Secondary", "Higher Secondary", "Graduate and above"),
+  ordered = TRUE
+)
+  
+# List of predictors so I can iterate through them
+predictors_lm <- c(
+  "sex",                
+  "childagemo",         
+  "motheredu",          
+  "wealthindex",        
+  "fer_adj",            
+  "bodyironcalc_adj",   
+  "tfr_adj",        
+  "rbp_adj",            
+  "zn_adj_aftercorrection", 
+  "se_adj",             
+  "folate_nmolL",       
+  "b12_pmolL",          
+  "totalvitd_nmolL",    
+  "lncrp_adj"           
+)
+  
+# Initialize a data frame to store the data
+df <- data.frame()
+  
+# For loop to iterate through the predictors
+for (var in predictors_lm) {
+  
+  # Unstandardized linear regression
+  lm_model <- lm(as.formula(paste("hb_gdL ~", var)), data = data)
+    
+  # Extract stats
+  coef_raw <- summary(lm_model)$coefficients[2]
+  ci <- confint(lm_model)[2, ]
+  pval <- summary(lm_model)$coefficients[2, 4]
+    
+  # Initialize std coef and CI to store
+  coef_std <- NA
+  std_ci <- c(NA, NA)
+  
+  # If else statement to determine whether the variable is numeric or categorical
+  # Determine whether variable is numeric for standardization
+  if (is.numeric(data[[var]])) {
+      
+    # Standardize the predictor and outcome
+    x_std <- scale(data[[var]])
+    y_std <- scale(data$hb_gdL)
+      
+    # Fit to linear regression
+    model_std <- lm(y_std ~ x_std)
+      
+    # Extract standardized coef and ci
+    coef_std <- summary(model_std)$coefficients[2,1]
+    std_ci <- confint(model_std)[2, ]
+    } else {
+      coef_std <- NA
+    }
+      
+  # Store in results
+  df <- rbind(df, data.frame(
+    Predictor = var,
+    B_Coefficient = round(coef_raw, 2),
+    CI_Lower = round(ci[1], 2),
+    CI_Upper = round(ci[2], 2),
+    Std_Coefficient = round(coef_std, 2),
+    Std_CI_Lower = round(std_ci[1],2),
+    Std_CI_Upper = round(std_ci[2],2),
+    P_Value = round(pval, 2)
+  ))
+}
+  
+# Get rid of the first column that states (2.5%i)
+rownames(df) <- NULL
+  
+# Creating a new column that has a more detailed name of the predictor that matches the paper
+df$Predictor <- c(
+  "Sex (male)",
+  "Age (months)",
+  "Maternal education (trend across categories)",
+  "Wealth index (trend across quintiles)",
+  "Adjusted ferritin, μg/L",
+  "Adjusted body iron, mg/kg",
+  "Adjusted sTfR, mg/L",
+  "Adjusted RBP, μmol/L",
+  "Adjusted zinc, μmol/L",
+  "Adjusted selenium, μmol/L",
+  "Folate, nmol/L",
+  "Vitamin B12, pmol/L",
+  "25(OH)D, nmol/L",
+  "Ln-CRP, mg/L"
+)
+  
+# Reorder columns so Predictor is first
+df <- df[, c("Predictor", "B_Coefficient", "CI_Lower", "CI_Upper", "Std_Coefficient", "Std_CI_Lower", "Std_CI_Upper", "P_Value")]
+
+df %>% 
+  kbl(caption = "Table 3. Regression Analysis of Sociodemographic and Mirconutrient predictors of Hemoglobin Concentration (g/L) (n=77)") %>%
+  kable_classic(full_width = F, html_font = "Times") %>%
+  column_spec(1, bold = T)
+
+```
+
+A majorty of my predictors matched the original values or was very similar to the unadjusted side (what I am replicating) of the linear regression table the paper had. The predictors that showed a statistically significant association with hemoglobin concentration (hb_gdL) were `adjusted ferritin (μg/L)` (p-value = 0), `adjusted body iron (mg/kg)` (p-value = 0), `adjusted sTfR (mg/L)` (p-value = 0), `adjusted RBP (μmol/L)` (p-value = 0), and `25(OD)D (nmol/L)` (p-value = 0), which matched the findings in the paper.
+
+#### Test for normality
+
+The paper did not perform any tests for normality based on the residuals of each linear regression to assess the assumption of normality.
+
+```{r}
+# Iterate through each predictor to create Q-Q plots
+for (var in predictors_lm) {
+  # Fit linear model
+  formula_raw <- as.formula(paste("hb_gdL ~", var))
+  model_raw <- lm(formula_raw, data = data)
+  
+  # Generate Q-Q plot for residuals
+  qqnorm(resid(model_raw), main = paste("Q-Q:", var))
+  qqline(resid(model_raw))
+}
+
+```
+
+We can see that the residuals are approximately normal, as the residuals followed the normal line closely. However, almost all the QQ plots had deviations at the tails which could mean that there are outliers that cause result in extreme predictor values.
+
+### Logistic Regression
+
+Linear regression in this study was used to assess predictors of anemia as a binary outcome (hemoglobin \< 11g/dL). This will allow researchers for interpretations of odds ratios to indicate how much the likelihood of anemia changes with each predictor.
+
+```{r}
+# Converting anemia into a binary outcome 
+data$anemia <- ifelse(data$hb_gdL < 11, 1, 0)
+
+# List of predictors so we can iterate through them later in a for loop
+predictors_glm <- c(
+  "sex",                      
+  "fer_adj",                  
+  "bodyironcalc_adj",         
+  "tfr_adj",                  
+  "rbp_adj",                  
+  "zn_adj_aftercorrection",   
+  "se_adj",                   
+  "folate_nmolL",             
+  "b12_pmolL",                
+  "totalvitd_nmolL",          
+  "lncrp_adj"                 
+)
+
+# Initialize a dataframe to store the results of the for loop
+logistic_df <- data.frame()
+
+# For loop through the predictors for the glm
+for (var in predictors_glm) {
+  
+  # Unstandardized logistic regression
+  glm_model <- glm(as.formula(paste("anemia ~", var)), data = data, family = binomial)
+  or <- exp(coef(glm_model)[2])
+  ci <- exp(confint(glm_model)[2, ])
+  pval <- summary(glm_model)$coefficients[2, 4]
+  
+  # If else statement to determine if the variable is numeric
+  if (is.numeric(data[[var]])) {
+  x_std <- scale(data[[var]])
+  model_std <- glm(data$anemia ~ x_std, family = binomial)  
+  std_or <- exp(coef(model_std)[2])
+  std_ci <- exp(confint(model_std)[2, ])
+  } else {
+  std_or <- NA
+  std_ci <- c(NA, NA)
+  }
+
+  # Store it into logistic_df
+  logistic_df <- rbind(logistic_df, data.frame(
+  Predictor = var,
+  OR = round(or, 2),
+  CI_Lower = round(ci[1], 2),
+  CI_Upper = round(ci[2], 2),
+  Std_OR = round(std_or, 2),
+  Std_CI_Lower = round(std_ci[1], 2),
+  Std_CI_Upper = round(std_ci[2], 2),
+  P_Value = round(pval, 2)
+))
+}
+
+# Making a new column to have more concise predictor names that match the paper
+logistic_df$Predictor <- c(
+  "Sex (male)",
+  "Adjusted ferritin, μg/L",
+  "Adjusted body iron, mg/kg",
+  "Adjusted sTfR, mg/L",
+  "Adjusted RBP, μmol/L",
+  "Adjusted zinc, μmol/L",
+  "Adjusted selenium, μmol/L",
+  "Folate, nmol/L",
+  "Vitamin B12, pmol/L",
+  "25(OH)D, nmol/L",
+  "Ln-CRP, mg/L"
+)
+
+# Removing the first column (which is the predictors names)
+rownames(logistic_df) <- NULL
+
+# Convert tfr_adj to log-transformed (just like the paper)
+data$log_tfr_adj <- log(data$tfr_adj)
+
+# Overwritting std_or with its 95% confidence interval using the log-transfromed tfr-adj
+remove_na_stfr <- !is.na(data$log_tfr_adj) & !is.na(data$anemia)
+
+# Performing a logistic regression on the log-transformed stfr
+std_model <- glm(data$anemia[remove_na_stfr] ~ scale(data$log_tfr_adj[remove_na_stfr]), family = binomial)
+
+# Extracting values 
+std_or <- exp(coef(model_std)[2])
+std_ci <- exp(confint(model_std)[2, ])
+p_val <- summary(model_std)$coefficients[2, 4]
+
+# Overwriting the table
+logistic_df[logistic_df$Predictor == "Adjusted sTfR, mg/L", c("Std_OR", "Std_CI_Lower", "Std_CI_Upper")] <-
+  c(round(std_or, 2), round(std_ci[1], 2), round(std_ci[2], 2))
+
+# Prettified Table
+logistic_df %>%
+  kbl(caption = "Table 4. Logistic Regression Analysis of Sociodemographic and Micronutrient Predictors of Anemia") %>%
+  kable_classic(full_width = F, html_font = "Times") %>%
+  column_spec(1, bold = T)
+```
+
+A majority of my predictors matched the original values or was very similar to the unadjusted side (what I am replicating) of the linear regression table the paper had. We can see that predictors like `adjusted ferritin (mg/L)` (p-value = 0), `adjusted body iron (mg/kg)` (p-value = 0), and `adjusted sTfR (mg/L)` (p-value = 0) were statistically significantly associated with anemia.
+
+#### Testing for normality
+
+The paper did not perform any tests for normality based on the residuals of each linear regression to assess the assumption of normality.
+
+```{r}
+# Iterate through each predictor to create Q-Q plots
+for (var in predictors_glm) {
+  # Fit linear model
+  formula_raw <- as.formula(paste("hb_gdL ~", var))
+  model_raw <- lm(formula_raw, data = data)
+  
+# Generate Q-Q plot for residuals
+  qqnorm(resid(model_raw), main = paste("Q-Q:", var))
+  qqline(resid(model_raw))
+}
+
+```
+
+Similar to the results of the Linear Regression test for normality. We can see that the residuals are approximately normal, as the residuals followed the normal line closely. However, almost all the QQ plots had deviations at the tails which could mean that there are outliers that cause result in extreme predictor values.
+
+### Boxplot of sTfR by anemia status
+
+```{r}
+# Boxplot of sTfR by anemia
+ggplot(data, aes(x = factor(anemia), y = tfr_adj, fill = factor(anemia))) +
+  geom_boxplot() +
+  labs(
+    title = "sTfR Levels by Anemia Status",
+    x = "Anemia Status (0 = Non-Anemic, 1 = Anemic)",
+    y = "Adjusted sTfR (mg/L)"
+  )
+
+```
+
+Houghton S. (2019) stated that the only significant dietary predictor of anemia in the multivariate model (not performed here) was iron status (`sTfR`). Therefore, I decided to show how sTfR levels differ between anemic and non-anemic children. The boxplot demonstrates that children with higher sTfR concentrations were more likely to have anemia, which matches the findings of the paper.
+
+## Discussion
+
+In the univariate linear regression, the predictors `adjusted ferritin (μg/L)` (p-value = 0), `adjusted body iron (mg/kg)` (p-value = 0), `adjusted sTfR (mg/L)` (p-value = 0), `adjusted RBP (μmol/L)` (p-value = 0), and `25(OD)D (nmol/L)` (p-value = 0) we statistically signficiantly associated with hemoglobin concentrations. Ferratin, body iron, rentinol binding protein, and vitamin D were positively associated with hemoglobin concentration. On the other hand, sTfR was negatively associated with hemoglobin concentration. Sociodemographic variables (child age, sex, maternal education, wealth index) were not sign
+
+In the multivariate linear regression (not performed here), the findings were that soluble transferrin receptor (sTfR) remained significantly and independently negatively associated with hemoglobin concentration in the adjusted model. CRP was negatively associated with hemoglobin. Although ferritin and body iron were statistically significant predictors in the univariate model, they were not included in the final model. This is because they wanted to focus on the predictor sTfR performed the best in capturing the iron effect. Vitamin D was a significant predictor in the univariate model, but in the multivariate model it was not significant.
+
+In the univariate logistic regression, the predictors `adjusted ferritin (mg/L)` (p-value = 0), `adjusted body iron (mg/kg)` (p-value = 0), and `adjusted sTfR (mg/L)` (p-value = 0) were statistically significantly associated with anemia. The adjusted odds ratio for ferritin indicates that for each unit increase in ferritin, the odds of anemia decrease by 13%; while the standardized odds show us that one standard deviation increase in ferritin is associated with a 68% lower odds of anemia. The unadjusted odds ratio for body iron indicates that for each mg/kg increase, the odds of anemia decrease by 36%; while the standardized odds ratio show us that for one standard deviation increase in body iron is associated with a 85% lower odds of anemia. The unadjusted odds for sTfR indicated that for each unit increase in sTfR , the odds of anemia increase by 54%; while the standardized odds ratio show us that for one standard deviation increase in sTfR is associated with a 714% higher odds of anemia.
+
+In the multivariate logistic regression (not performed here), the findings were that sTfR was a statistically significant predictor associated with anemia, even after adjusting for sex. Variables like selenium, RBP, and Ln-CRP were not a statistically significant predictors of anemia in this model. Other variables like folate, vitamin B2, vitamin D, and zinc were excluded from the final model due to its low sample size and significance in the univariate analysis.
+
+The only significant dietary predictor of anemia in multivariate models was iron status. Therefore iron deficiency is the main contributor to anemia. These finds will help public health professionals implement multinutrient interventions to help improve anemia-related outcomes in young children in New Delhi, India.
+
+## References
+
+<https://pmc.ncbi.nlm.nih.gov/articles/PMC6368289/>
